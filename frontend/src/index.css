@@ -1,0 +1,161 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  @apply transition-colors;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-slate-950 text-slate-100;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  @apply w-2;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-slate-900;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-700 rounded-lg hover:bg-slate-600;
+}
+
+/* Loading animation */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Input styling */
+input[type='text'],
+input[type='email'],
+input[type='password'],
+input[type='number'],
+textarea {
+  @apply bg-slate-800 border border-slate-700 text-white placeholder-slate-500;
+}
+
+input[type='text']:focus,
+input[type='email']:focus,
+input[type='password']:focus,
+input[type='number']:focus,
+textarea:focus {
+  @apply border-blue-500 outline-none ring-2 ring-blue-500/20;
+}
+
+/* Button styling */
+button {
+  @apply transition-all duration-200;
+}
+
+button:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+/* Link styling */
+a {
+  @apply text-blue-400 hover:text-blue-300 transition-colors;
+}
+
+/* Badge styling */
+.badge {
+  @apply inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium;
+}
+
+.badge-primary {
+  @apply bg-blue-900/30 text-blue-300;
+}
+
+.badge-success {
+  @apply bg-green-900/30 text-green-300;
+}
+
+.badge-warning {
+  @apply bg-yellow-900/30 text-yellow-300;
+}
+
+.badge-danger {
+  @apply bg-red-900/30 text-red-300;
+}
+
+/* Card styling */
+.card {
+  @apply bg-slate-800 border border-slate-700 rounded-xl;
+}
+
+/* Prose styling */
+.prose {
+  @apply text-slate-300;
+}
+
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6 {
+  @apply text-white font-bold;
+}
+
+.prose a {
+  @apply text-blue-400 hover:text-blue-300 underline;
+}
+
+.prose code {
+  @apply bg-slate-900 px-2 py-1 rounded text-slate-200 text-sm;
+}
+
+.prose pre {
+  @apply bg-slate-900 p-4 rounded-lg overflow-x-auto;
+}
+
+.prose blockquote {
+  @apply border-l-4 border-slate-600 pl-4 text-slate-400 italic;
+}
+
+/* Utilities */
+.truncate-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.truncate-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Gradients */
+.gradient-blue {
+  @apply bg-gradient-to-r from-blue-600 to-blue-400;
+}
+
+.gradient-purple {
+  @apply bg-gradient-to-r from-purple-600 to-pink-600;
+}
+
+/* Responsive utilities */
+@media (max-width: 640px) {
+  .sm-hidden {
+    @apply hidden;
+  }
+}

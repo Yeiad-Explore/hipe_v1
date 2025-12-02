@@ -1,0 +1,179 @@
+{
+  "app": {
+    "name": "Hipe",
+    "tagline": "AI-Powered Q&A Search Engine",
+    "description": "Search X (Twitter) and Reddit with intelligent AI synthesis",
+    "version": "1.0.0",
+    "theme": "modern-dark"
+  },
+  "layout": {
+    "header": {
+      "logo": "Hipe",
+      "navigation": [
+        {"label": "Search", "path": "/", "icon": "search"},
+        {"label": "History", "path": "/history", "icon": "history"},
+        {"label": "Settings", "path": "/settings", "icon": "settings"},
+        {"label": "About", "path": "/about", "icon": "info"}
+      ],
+      "actions": [
+        {"label": "Dark Mode", "type": "toggle", "key": "darkMode"}
+      ]
+    },
+    "sidebar": {
+      "visible": true,
+      "collapsible": true,
+      "content": {
+        "filters": {
+          "platform": ["All", "X (Twitter)", "Reddit"],
+          "timeRange": ["Last 24h", "Last 7d", "Last 30d", "All time"],
+          "confidence": {"min": 0, "max": 1, "step": 0.1, "default": 0.5}
+        },
+        "recentSearches": {
+          "enabled": true,
+          "limit": 10
+        }
+      }
+    },
+    "main": {
+      "searchBar": {
+        "placeholder": "Ask anything... What are people saying about...",
+        "expandable": true,
+        "suggestions": true,
+        "voice": false
+      },
+      "resultArea": {
+        "layout": "card",
+        "sections": [
+          {
+            "id": "answer",
+            "title": "AI Synthesis",
+            "icon": "sparkles",
+            "content_type": "markdown"
+          },
+          {
+            "id": "confidence",
+            "title": "Confidence & Consensus",
+            "icon": "chart",
+            "content_type": "metrics"
+          },
+          {
+            "id": "perspectives",
+            "title": "Multiple Perspectives",
+            "icon": "layers",
+            "content_type": "tabs"
+          },
+          {
+            "id": "sources",
+            "title": "Sources",
+            "icon": "link",
+            "content_type": "table",
+            "columns": [
+              {"key": "platform", "label": "Platform", "width": "15%"},
+              {"key": "author", "label": "Author", "width": "25%"},
+              {"key": "content", "label": "Content", "width": "40%"},
+              {"key": "credibility", "label": "Credibility", "width": "15%"},
+              {"key": "link", "label": "Link", "width": "5%"}
+            ]
+          }
+        ]
+      }
+    },
+    "footer": {
+      "copyright": "© 2024 Hipe. All rights reserved.",
+      "links": [
+        {"label": "Privacy", "path": "/privacy"},
+        {"label": "Terms", "path": "/terms"},
+        {"label": "GitHub", "path": "https://github.com"}
+      ]
+    }
+  },
+  "colors": {
+    "primary": "#3B82F6",
+    "secondary": "#10B981",
+    "accent": "#F59E0B",
+    "danger": "#EF4444",
+    "background": "#0F172A",
+    "surface": "#1E293B",
+    "text": "#F1F5F9",
+    "textSecondary": "#CBD5E1",
+    "border": "#334155"
+  },
+  "typography": {
+    "fontFamily": "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    "sizes": {
+      "xs": "12px",
+      "sm": "14px",
+      "base": "16px",
+      "lg": "18px",
+      "xl": "20px",
+      "2xl": "24px",
+      "3xl": "30px"
+    }
+  },
+  "components": {
+    "searchInput": {
+      "minHeight": "48px",
+      "borderRadius": "12px",
+      "icon": true,
+      "loading": true
+    },
+    "card": {
+      "borderRadius": "12px",
+      "shadow": "md",
+      "padding": "20px"
+    },
+    "button": {
+      "borderRadius": "8px",
+      "padding": "10px 16px",
+      "variants": ["primary", "secondary", "outline"]
+    },
+    "badge": {
+      "sizes": ["sm", "md", "lg"]
+    },
+    "table": {
+      "hoverable": true,
+      "striped": true,
+      "sortable": true
+    }
+  },
+  "features": {
+    "darkMode": {
+      "enabled": true,
+      "default": "auto"
+    },
+    "keyboard_shortcuts": {
+      "enabled": true,
+      "shortcuts": [
+        {"key": "Cmd+K", "action": "focus_search"},
+        {"key": "Escape", "action": "clear_search"},
+        {"key": "?", "action": "show_help"}
+      ]
+    },
+    "accessibility": {
+      "highContrast": true,
+      "reduceMotion": true,
+      "screenReaderSupport": true
+    },
+    "responsive": {
+      "breakpoints": {
+        "mobile": "640px",
+        "tablet": "1024px",
+        "desktop": "1280px"
+      }
+    }
+  },
+  "api": {
+    "baseUrl": "/api",
+    "endpoints": {
+      "search": "/search",
+      "history": "/history",
+      "suggestions": "/suggestions"
+    },
+    "timeout": 30000,
+    "retryAttempts": 3
+  },
+  "analytics": {
+    "enabled": false,
+    "trackEvents": ["search", "source_click", "share"]
+  }
+}
