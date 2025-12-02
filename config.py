@@ -31,15 +31,13 @@ class XConfig(BaseModel):
 
 
 class RedditConfig(BaseModel):
-    """Reddit API configuration."""
-    client_id: str = Field(default_factory=lambda: os.getenv("REDDIT_CLIENT_ID", ""))
-    client_secret: str = Field(default_factory=lambda: os.getenv("REDDIT_CLIENT_SECRET", ""))
+    """Reddit configuration (YARS - no API keys needed)."""
     user_agent: str = Field(default_factory=lambda: os.getenv("REDDIT_USER_AGENT", "QA_Agent/1.0"))
 
     @property
     def is_configured(self) -> bool:
-        """Check if Reddit API is configured."""
-        return bool(self.client_id and self.client_secret)
+        """Check if Reddit is configured (always True for YARS)."""
+        return True  # YARS doesn't require authentication
 
 
 class AgentConfig(BaseModel):
@@ -89,7 +87,7 @@ class Config(BaseModel):
         summary = "Configuration Status:\n"
         summary += f"  ✓ Azure OpenAI: {'Configured' if status['azure_openai'] else 'Missing'}\n"
         summary += f"  {'✓' if status['x_api'] else '✗'} X API: {'Configured' if status['x_api'] else 'Not configured (optional)'}\n"
-        summary += f"  {'✓' if status['reddit_api'] else '✗'} Reddit API: {'Configured' if status['reddit_api'] else 'Not configured (optional)'}\n"
+        summary += f"  ✓ Reddit (YARS): Always available (no API keys needed)\n"
         summary += f"\nAgent Settings:\n"
         summary += f"  Max Search Results: {self.agent.max_search_results}\n"
         summary += f"  Top-K Retrieval: {self.agent.top_k_retrieval}\n"

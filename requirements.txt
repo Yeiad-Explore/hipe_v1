@@ -9,7 +9,7 @@ azure-identity>=1.15.0
 
 # Social Media APIs
 tweepy>=4.14.0
-praw>=7.7.1
+yars>=1.0.0
 
 # Vector Database & Embeddings
 chromadb>=0.4.22

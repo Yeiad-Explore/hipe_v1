@@ -7,7 +7,6 @@ Complete guide to setting up and running the AI Q&A Agent.
 - Python 3.9 or higher
 - Azure OpenAI account with deployments
 - X (Twitter) Developer account (optional but recommended)
-- Reddit Developer account (optional but recommended)
 
 ## Step 1: Install Dependencies
 
@@ -19,7 +18,7 @@ This will install:
 - **LangGraph** for multi-agent orchestration
 - **Azure OpenAI SDK** for LLM and embeddings
 - **Tweepy** for X API
-- **PRAW** for Reddit API
+- **YARS** for Reddit scraping (no API keys needed!)
 - **ChromaDB** for vector caching
 - **Rich** for beautiful CLI output
 
@@ -56,25 +55,11 @@ X_BEARER_TOKEN=your_bearer_token_here
 
 **Note:** Without X credentials, the agent will still work but won't search X/Twitter.
 
-### Reddit API Setup
+### Reddit Setup (YARS)
 
-1. Go to https://www.reddit.com/prefs/apps
-2. Click "Create App" or "Create Another App"
-3. Fill in:
-   - Name: QA Agent
-   - Type: Script
-   - Redirect URI: http://localhost:8080
-4. Get your credentials:
-   - Client ID (under app name)
-   - Client Secret
-5. Update `.env`:
+✅ **No API keys needed!** Reddit search works out of the box using YARS (Yet Another Reddit Scraper).
 
-```bash
-REDDIT_CLIENT_ID=your_client_id_here
-REDDIT_CLIENT_SECRET=your_client_secret_here
-```
-
-**Note:** Without Reddit credentials, the agent will still work but won't search Reddit.
+YARS scrapes Reddit without authentication, so you can start using Reddit search immediately without any setup!
 
 ## Step 3: Test the Installation
 
@@ -264,10 +249,10 @@ for source in result["sources"]:
 - Verify X API credentials are valid
 - Agent will continue without X search
 
-### "Reddit API error"
-- Check REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET
-- Verify Reddit app is type "script"
-- Agent will continue without Reddit search
+### "Reddit YARS error"
+- YARS scraping may occasionally fail due to Reddit rate limits
+- Agent will continue without Reddit results
+- No action needed - YARS doesn't require credentials
 
 ### "No search results found"
 - Query may be too specific
@@ -298,9 +283,9 @@ for source in result["sources"]:
 - 50 tweets / 15 minutes
 - 500 tweets / month
 
-### Reddit API
-- 60 requests / minute
-- No monthly limit
+### Reddit (YARS)
+- No official rate limits (scraping)
+- May encounter temporary blocks if excessive
 
 ### Azure OpenAI
 - Depends on your deployment quota
@@ -309,10 +294,11 @@ for source in result["sources"]:
 ## Next Steps
 
 1. ✅ Install dependencies
-2. ✅ Configure API keys (Azure done, add X/Reddit)
-3. ✅ Run test script
-4. ✅ Try interactive mode
-5. 🎯 Ask your questions!
+2. ✅ Configure API keys (Azure done, optionally add X)
+3. ✅ Reddit works automatically (YARS, no keys needed)
+4. ✅ Run test script
+5. ✅ Try interactive mode
+6. 🎯 Ask your questions!
 
 ## Support
 
@@ -320,6 +306,6 @@ For issues, check:
 - GitHub repository
 - Azure OpenAI documentation
 - X Developer docs
-- Reddit API docs
+- YARS documentation
 
 Happy querying! 🚀
