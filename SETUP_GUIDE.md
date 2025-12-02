@@ -18,7 +18,7 @@ This will install:
 - **LangGraph** for multi-agent orchestration
 - **Azure OpenAI SDK** for LLM and embeddings
 - **Tweepy** for X API
-- **YARS** for Reddit scraping (no API keys needed!)
+- **snscrape** for Reddit scraping (no API keys needed!)
 - **ChromaDB** for vector caching
 - **Rich** for beautiful CLI output
 
@@ -55,11 +55,11 @@ X_BEARER_TOKEN=your_bearer_token_here
 
 **Note:** Without X credentials, the agent will still work but won't search X/Twitter.
 
-### Reddit Setup (YARS)
+### Reddit Setup (snscrape)
 
-✅ **No API keys needed!** Reddit search works out of the box using YARS (Yet Another Reddit Scraper).
+✅ **No API keys needed!** Reddit search works out of the box using snscrape.
 
-YARS scrapes Reddit without authentication, so you can start using Reddit search immediately without any setup!
+snscrape scrapes Reddit without authentication, so you can start using Reddit search immediately without any setup!
 
 ## Step 3: Test the Installation
 
@@ -249,10 +249,10 @@ for source in result["sources"]:
 - Verify X API credentials are valid
 - Agent will continue without X search
 
-### "Reddit YARS error"
-- YARS scraping may occasionally fail due to Reddit rate limits
+### "Reddit snscrape error"
+- snscrape may occasionally fail due to Reddit rate limits
 - Agent will continue without Reddit results
-- No action needed - YARS doesn't require credentials
+- No action needed - snscrape doesn't require credentials
 
 ### "No search results found"
 - Query may be too specific
@@ -283,7 +283,7 @@ for source in result["sources"]:
 - 50 tweets / 15 minutes
 - 500 tweets / month
 
-### Reddit (YARS)
+### Reddit (snscrape)
 - No official rate limits (scraping)
 - May encounter temporary blocks if excessive
 
@@ -295,7 +295,7 @@ for source in result["sources"]:
 
 1. ✅ Install dependencies
 2. ✅ Configure API keys (Azure done, optionally add X)
-3. ✅ Reddit works automatically (YARS, no keys needed)
+3. ✅ Reddit works automatically (snscrape, no keys needed)
 4. ✅ Run test script
 5. ✅ Try interactive mode
 6. 🎯 Ask your questions!
@@ -306,6 +306,6 @@ For issues, check:
 - GitHub repository
 - Azure OpenAI documentation
 - X Developer docs
-- YARS documentation
+- snscrape documentation
 
 Happy querying! 🚀

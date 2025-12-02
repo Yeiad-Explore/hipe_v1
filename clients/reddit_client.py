@@ -1,8 +1,8 @@
-"""Reddit scraper client using YARS."""
+"""Reddit scraper client using snscrape."""
 import os
 from typing import List, Dict, Any, Optional
-from datetime import datetime
-from yars import search, get_post
+from datetime import datetime, timedelta
+import snscrape.modules.reddit as snreddit
 from tenacity import retry, stop_after_attempt, wait_exponential
 from dotenv import load_dotenv
 from loguru import logger
@@ -13,13 +13,13 @@ load_dotenv()
 
 
 class RedditClient:
-    """Client for Reddit using YARS (Yet Another Reddit Scraper)."""
+    """Client for Reddit using snscrape (no authentication required)."""
 
     def __init__(self):
         """Initialize Reddit scraper client."""
-        # YARS doesn't require authentication!
+        # snscrape doesn't require authentication!
         self.user_agent = os.getenv("REDDIT_USER_AGENT", "QA_Agent/1.0")
-        logger.info("Reddit YARS client initialized (no API keys needed)")
+        logger.info("Reddit snscrape client initialized (no API keys needed)")
 
     @retry(
         stop=stop_after_attempt(3),
@@ -34,7 +34,7 @@ class RedditClient:
         subreddits: Optional[List[str]] = None,
     ) -> List[SearchResult]:
         """
-        Search Reddit posts and comments using YARS.
+        Search Reddit posts using snscrape.
 
         Args:
             query: Search query
@@ -48,157 +48,151 @@ class RedditClient:
         try:
             results = []
 
+            # Calculate time range for filtering
+            time_deltas = {
+                "hour": timedelta(hours=1),
+                "day": timedelta(days=1),
+                "week": timedelta(weeks=1),
+                "month": timedelta(days=30),
+                "year": timedelta(days=365),
+                "all": None,
+            }
+            time_delta = time_deltas.get(time_filter, timedelta(days=30))
+            cutoff_time = datetime.now() - time_delta if time_delta else None
+
             # Determine search scope
-            if subreddits:
-                subreddit_query = "+".join(subreddits)
-            else:
-                subreddit_query = "all"
-
-            # Search using YARS
-            logger.debug(f"Searching Reddit with YARS: query='{query}', subreddit='{subreddit_query}'")
-
-            search_results = search(
-                query=query,
-                subreddit=subreddit_query,
-                time_filter=time_filter,
-                sort="relevance",
-                limit=max_results,
-            )
-
-            for post in search_results:
-                try:
-                    # Skip removed/deleted posts
-                    if post.get("removed", False) or post.get("selftext") == "[removed]":
-                        continue
-
-                    # Extract post data
-                    title = post.get("title", "")
-                    selftext = post.get("selftext", "")
-                    score = post.get("score", 0)
-                    upvote_ratio = post.get("upvote_ratio", 0.5)
-                    num_comments = post.get("num_comments", 0)
-                    awards = post.get("total_awards_received", 0)
-                    author = post.get("author", "[deleted]")
-                    post_id = post.get("id", "")
-                    subreddit = post.get("subreddit", "")
-                    permalink = post.get("permalink", "")
-                    created_utc = post.get("created_utc", 0)
-                    flair = post.get("link_flair_text", "")
-
-                    # Calculate engagement
-                    engagement = {
-                        "upvotes": score,
-                        "upvote_ratio": int(upvote_ratio * 100),
-                        "num_comments": num_comments,
-                        "awards": awards,
-                    }
-
-                    # Calculate credibility
-                    credibility = 0.5
-                    if awards > 0:
-                        credibility += 0.2
-                    if upvote_ratio > 0.8:
-                        credibility += 0.2
-                    if num_comments > 50:
-                        credibility += 0.1
-                    credibility = min(credibility, 1.0)
-
-                    # Calculate relevance
-                    relevance = min(score / 1000, 1.0)
-
-                    # Get post content
-                    content = title
-                    if selftext and len(selftext) > 0:
-                        content += f"\n\n{selftext[:1000]}"  # Limit length
-
-                    source = SourceAttribution(
-                        platform="reddit",
-                        url=f"https://reddit.com{permalink}" if permalink else f"https://reddit.com/r/{subreddit}/comments/{post_id}",
-                        author=f"u/{author}",
-                        timestamp=datetime.fromtimestamp(created_utc) if created_utc else datetime.now(),
-                        engagement=engagement,
-                        credibility_score=credibility,
-                    )
-
-                    result = SearchResult(
-                        platform="reddit",
-                        content=content,
-                        source=source,
-                        relevance_score=relevance,
-                        metadata={
-                            "post_id": post_id,
-                            "subreddit": subreddit,
-                            "is_self": bool(selftext),
-                            "flair": flair,
-                        },
-                    )
-                    results.append(result)
-
-                    # Get top comments using YARS
+            if subreddits and len(subreddits) > 0:
+                # Search specific subreddits
+                for subreddit in subreddits[:3]:  # Limit to first 3 for performance
                     try:
-                        post_data = get_post(post_id=post_id, subreddit=subreddit)
-                        comments = post_data.get("comments", [])[:3]  # Top 3 comments
+                        logger.debug(f"Searching r/{subreddit} with snscrape: query='{query}'")
+                        scraper = snreddit.RedditSearchScraper(
+                            query=query,
+                            subreddit=subreddit,
+                        )
 
-                        for comment in comments:
-                            if not comment or len(comment.get("body", "")) < 50:
+                        for i, submission in enumerate(scraper.get_items()):
+                            if i >= max_results // len(subreddits):
+                                break
+
+                            # Apply time filter
+                            if cutoff_time and submission.created < cutoff_time:
                                 continue
 
-                            comment_body = comment.get("body", "")
-                            comment_score = comment.get("score", 0)
-                            comment_awards = comment.get("total_awards_received", 0)
-                            comment_author = comment.get("author", "[deleted]")
-                            comment_id = comment.get("id", "")
-                            comment_created = comment.get("created_utc", 0)
+                            result = self._process_submission(submission)
+                            if result:
+                                results.append(result)
 
-                            comment_engagement = {
-                                "upvotes": comment_score,
-                                "awards": comment_awards,
-                            }
+                    except Exception as sub_error:
+                        logger.warning(f"Error searching r/{subreddit}: {sub_error}")
+                        continue
+            else:
+                # Search all of Reddit
+                logger.debug(f"Searching all of Reddit with snscrape: query='{query}'")
+                scraper = snreddit.RedditSearchScraper(query=query)
 
-                            comment_credibility = 0.5
-                            if comment_awards > 0:
-                                comment_credibility += 0.3
-                            if comment_score > 100:
-                                comment_credibility += 0.2
-                            comment_credibility = min(comment_credibility, 1.0)
+                for i, submission in enumerate(scraper.get_items()):
+                    if i >= max_results:
+                        break
 
-                            comment_source = SourceAttribution(
-                                platform="reddit",
-                                url=f"https://reddit.com{permalink}{comment_id}" if permalink else f"https://reddit.com/comments/{post_id}/_/{comment_id}",
-                                author=f"u/{comment_author}",
-                                timestamp=datetime.fromtimestamp(comment_created) if comment_created else datetime.now(),
-                                engagement=comment_engagement,
-                                credibility_score=comment_credibility,
-                            )
+                    # Apply time filter
+                    if cutoff_time and submission.created < cutoff_time:
+                        continue
 
-                            comment_result = SearchResult(
-                                platform="reddit",
-                                content=comment_body[:1000],  # Limit length
-                                source=comment_source,
-                                relevance_score=min(comment_score / 500, 1.0),
-                                metadata={
-                                    "comment_id": comment_id,
-                                    "parent_id": post_id,
-                                    "subreddit": subreddit,
-                                    "is_comment": True,
-                                },
-                            )
-                            results.append(comment_result)
+                    result = self._process_submission(submission)
+                    if result:
+                        results.append(result)
 
-                    except Exception as comment_error:
-                        logger.debug(f"Could not fetch comments for post {post_id}: {comment_error}")
-                        # Continue without comments
-
-                except Exception as post_error:
-                    logger.warning(f"Error processing post: {post_error}")
-                    continue
-
-            logger.info(f"Retrieved {len(results)} results from Reddit (YARS) for query: {query}")
-            return results[:max_results]  # Limit to max_results
+            logger.info(f"Retrieved {len(results)} results from Reddit (snscrape) for query: {query}")
+            return results[:max_results]
 
         except Exception as e:
-            logger.error(f"Reddit YARS error: {e}")
+            logger.error(f"Reddit snscrape error: {e}")
             return []
+
+    def _process_submission(self, submission) -> Optional[SearchResult]:
+        """
+        Process a Reddit submission into a SearchResult.
+
+        Args:
+            submission: snscrape RedditSubmission object
+
+        Returns:
+            SearchResult or None if processing fails
+        """
+        try:
+            # Extract data from submission
+            title = submission.title or ""
+            selftext = submission.selftext or ""
+            score = submission.score or 0
+            num_comments = submission.commentCount or 0
+            author = submission.author or "[deleted]"
+            post_id = submission.id or ""
+            subreddit = submission.subreddit or ""
+            url = submission.url or f"https://reddit.com/r/{subreddit}/comments/{post_id}"
+            created = submission.created or datetime.now()
+
+            # Skip removed/deleted posts
+            if selftext in ["[removed]", "[deleted]"] or title in ["[removed]", "[deleted]"]:
+                return None
+
+            # Calculate engagement (estimate upvote ratio)
+            upvote_ratio = 0.8  # Default estimate
+            if score > 0:
+                upvote_ratio = min(0.9, 0.5 + (score / 1000))
+
+            engagement = {
+                "upvotes": score,
+                "upvote_ratio": int(upvote_ratio * 100),
+                "num_comments": num_comments,
+                "awards": 0,  # snscrape doesn't provide awards
+            }
+
+            # Calculate credibility
+            credibility = 0.5
+            if upvote_ratio > 0.8:
+                credibility += 0.2
+            if num_comments > 50:
+                credibility += 0.1
+            if score > 100:
+                credibility += 0.2
+            credibility = min(credibility, 1.0)
+
+            # Calculate relevance
+            relevance = min(score / 1000, 1.0)
+
+            # Get post content
+            content = title
+            if selftext and len(selftext) > 0:
+                content += f"\n\n{selftext[:1000]}"  # Limit length
+
+            source = SourceAttribution(
+                platform="reddit",
+                url=url,
+                author=f"u/{author}",
+                timestamp=created,
+                engagement=engagement,
+                credibility_score=credibility,
+            )
+
+            result = SearchResult(
+                platform="reddit",
+                content=content,
+                source=source,
+                relevance_score=relevance,
+                metadata={
+                    "post_id": post_id,
+                    "subreddit": subreddit,
+                    "is_self": bool(selftext),
+                    "flair": "",  # snscrape doesn't provide flair
+                },
+            )
+
+            return result
+
+        except Exception as e:
+            logger.warning(f"Error processing submission: {e}")
+            return None
 
     def get_subreddit_suggestions(self, query: str) -> List[str]:
         """
@@ -214,28 +208,58 @@ class RedditClient:
             # Common subreddits based on keywords
             suggestions = []
 
+            query_lower = query.lower()
+
             # Tech-related
-            if any(word in query.lower() for word in ["python", "javascript", "code", "programming", "developer"]):
-                suggestions.extend(["programming", "learnprogramming", "coding"])
+            if any(word in query_lower for word in ["python", "javascript", "code", "programming", "developer", "coding"]):
+                suggestions.extend(["programming", "learnprogramming", "coding", "Python", "javascript"])
 
             # AI/ML related
-            if any(word in query.lower() for word in ["ai", "machine learning", "ml", "llm", "gpt"]):
-                suggestions.extend(["MachineLearning", "artificial", "LocalLLaMA"])
+            if any(word in query_lower for word in ["ai", "machine learning", "ml", "llm", "gpt", "artificial intelligence"]):
+                suggestions.extend(["MachineLearning", "artificial", "LocalLLaMA", "ChatGPT", "OpenAI"])
 
             # General tech
-            if any(word in query.lower() for word in ["tech", "computer", "software"]):
-                suggestions.extend(["technology", "software", "computers"])
+            if any(word in query_lower for word in ["tech", "computer", "software", "hardware"]):
+                suggestions.extend(["technology", "software", "computers", "gadgets"])
 
             # News/current events
-            if any(word in query.lower() for word in ["news", "latest", "today", "recent"]):
-                suggestions.extend(["news", "worldnews"])
+            if any(word in query_lower for word in ["news", "latest", "today", "recent", "happening"]):
+                suggestions.extend(["news", "worldnews", "tech"])
 
-            # Default to popular general subreddits
+            # Web development
+            if any(word in query_lower for word in ["web", "frontend", "backend", "react", "node"]):
+                suggestions.extend(["webdev", "reactjs", "node", "Frontend", "Backend"])
+
+            # Mobile development
+            if any(word in query_lower for word in ["android", "ios", "mobile", "app"]):
+                suggestions.extend(["androiddev", "iOSProgramming", "mobiledev", "FlutterDev"])
+
+            # Data science
+            if any(word in query_lower for word in ["data", "science", "analytics", "visualization"]):
+                suggestions.extend(["datascience", "dataengineering", "analytics"])
+
+            # Gaming
+            if any(word in query_lower for word in ["game", "gaming", "video game"]):
+                suggestions.extend(["gaming", "Games", "pcgaming"])
+
+            # Business/Career
+            if any(word in query_lower for word in ["career", "job", "work", "salary", "interview"]):
+                suggestions.extend(["cscareerquestions", "programming", "jobs"])
+
+            # Default to popular general subreddits if no matches
             if not suggestions:
-                suggestions = ["AskReddit", "all"]
+                suggestions = ["AskReddit", "technology", "news"]
 
-            logger.debug(f"Suggested subreddits for '{query}': {suggestions[:5]}")
-            return suggestions[:5]
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_suggestions = []
+            for sub in suggestions:
+                if sub not in seen:
+                    seen.add(sub)
+                    unique_suggestions.append(sub)
+
+            logger.debug(f"Suggested subreddits for '{query}': {unique_suggestions[:5]}")
+            return unique_suggestions[:5]
 
         except Exception as e:
             logger.error(f"Error getting subreddit suggestions: {e}")
