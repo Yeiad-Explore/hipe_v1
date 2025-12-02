@@ -31,13 +31,13 @@ class XConfig(BaseModel):
 
 
 class RedditConfig(BaseModel):
-    """Reddit configuration (snscrape - no API keys needed)."""
+    """Reddit configuration (Public JSON API - no API keys needed)."""
     user_agent: str = Field(default_factory=lambda: os.getenv("REDDIT_USER_AGENT", "QA_Agent/1.0"))
 
     @property
     def is_configured(self) -> bool:
-        """Check if Reddit is configured (always True for snscrape)."""
-        return True  # snscrape doesn't require authentication
+        """Check if Reddit is configured (always True for public API)."""
+        return True  # Public JSON API doesn't require authentication
 
 
 class AgentConfig(BaseModel):
@@ -87,7 +87,7 @@ class Config(BaseModel):
         summary = "Configuration Status:\n"
         summary += f"  ✓ Azure OpenAI: {'Configured' if status['azure_openai'] else 'Missing'}\n"
         summary += f"  {'✓' if status['x_api'] else '✗'} X API: {'Configured' if status['x_api'] else 'Not configured (optional)'}\n"
-        summary += f"  ✓ Reddit (snscrape): Always available (no API keys needed)\n"
+        summary += f"  ✓ Reddit (JSON API): Always available (no API keys needed)\n"
         summary += f"\nAgent Settings:\n"
         summary += f"  Max Search Results: {self.agent.max_search_results}\n"
         summary += f"  Top-K Retrieval: {self.agent.top_k_retrieval}\n"

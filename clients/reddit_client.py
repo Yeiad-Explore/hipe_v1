@@ -1,8 +1,9 @@
-"""Reddit scraper client using snscrape."""
+"""Reddit client using public JSON API (no authentication required)."""
 import os
+import time
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
-import snscrape.modules.reddit as snreddit
+import requests
 from tenacity import retry, stop_after_attempt, wait_exponential
 from dotenv import load_dotenv
 from loguru import logger
@@ -13,13 +14,17 @@ load_dotenv()
 
 
 class RedditClient:
-    """Client for Reddit using snscrape (no authentication required)."""
+    """Client for Reddit using public JSON API (no authentication required)."""
 
     def __init__(self):
-        """Initialize Reddit scraper client."""
-        # snscrape doesn't require authentication!
+        """Initialize Reddit client."""
         self.user_agent = os.getenv("REDDIT_USER_AGENT", "QA_Agent/1.0")
-        logger.info("Reddit snscrape client initialized (no API keys needed)")
+        self.base_url = "https://www.reddit.com"
+        self.session = requests.Session()
+        self.session.headers.update({
+            "User-Agent": self.user_agent
+        })
+        logger.info("Reddit JSON API client initialized (no API keys needed)")
 
     @retry(
         stop=stop_after_attempt(3),
@@ -34,7 +39,7 @@ class RedditClient:
         subreddits: Optional[List[str]] = None,
     ) -> List[SearchResult]:
         """
-        Search Reddit posts using snscrape.
+        Search Reddit posts using public JSON API.
 
         Args:
             query: Search query
@@ -48,114 +53,109 @@ class RedditClient:
         try:
             results = []
 
-            # Calculate time range for filtering
-            time_deltas = {
-                "hour": timedelta(hours=1),
-                "day": timedelta(days=1),
-                "week": timedelta(weeks=1),
-                "month": timedelta(days=30),
-                "year": timedelta(days=365),
-                "all": None,
-            }
-            time_delta = time_deltas.get(time_filter, timedelta(days=30))
-            cutoff_time = datetime.now() - time_delta if time_delta else None
-
             # Determine search scope
             if subreddits and len(subreddits) > 0:
                 # Search specific subreddits
-                for subreddit in subreddits[:3]:  # Limit to first 3 for performance
-                    try:
-                        logger.debug(f"Searching r/{subreddit} with snscrape: query='{query}'")
-                        scraper = snreddit.RedditSearchScraper(
-                            query=query,
-                            subreddit=subreddit,
-                        )
-
-                        for i, submission in enumerate(scraper.get_items()):
-                            if i >= max_results // len(subreddits):
-                                break
-
-                            # Apply time filter
-                            if cutoff_time and submission.created < cutoff_time:
-                                continue
-
-                            result = self._process_submission(submission)
-                            if result:
-                                results.append(result)
-
-                    except Exception as sub_error:
-                        logger.warning(f"Error searching r/{subreddit}: {sub_error}")
-                        continue
+                subreddit_str = "+".join(subreddits[:5])  # Max 5 subreddits
             else:
-                # Search all of Reddit
-                logger.debug(f"Searching all of Reddit with snscrape: query='{query}'")
-                scraper = snreddit.RedditSearchScraper(query=query)
+                subreddit_str = "all"
 
-                for i, submission in enumerate(scraper.get_items()):
-                    if i >= max_results:
-                        break
+            # Build search URL
+            search_url = f"{self.base_url}/r/{subreddit_str}/search.json"
 
-                    # Apply time filter
-                    if cutoff_time and submission.created < cutoff_time:
-                        continue
+            params = {
+                "q": query,
+                "sort": "relevance",
+                "t": time_filter,
+                "limit": min(max_results, 100),  # Reddit limit
+                "restrict_sr": "on",
+                "raw_json": 1,
+            }
 
-                    result = self._process_submission(submission)
-                    if result:
-                        results.append(result)
+            logger.debug(f"Searching Reddit: {search_url} with params {params}")
 
-            logger.info(f"Retrieved {len(results)} results from Reddit (snscrape) for query: {query}")
+            response = self.session.get(search_url, params=params, timeout=10)
+            response.raise_for_status()
+
+            data = response.json()
+
+            if "data" not in data or "children" not in data["data"]:
+                logger.warning(f"No results found for query: {query}")
+                return []
+
+            posts = data["data"]["children"]
+
+            for post_data in posts:
+                if post_data["kind"] != "t3":  # t3 = link/post
+                    continue
+
+                post = post_data["data"]
+                result = self._process_post(post)
+                if result:
+                    results.append(result)
+
+            logger.info(f"Retrieved {len(results)} results from Reddit for query: {query}")
+
+            # Add small delay to be respectful
+            time.sleep(0.5)
+
             return results[:max_results]
 
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Reddit API request error: {e}")
+            return []
         except Exception as e:
-            logger.error(f"Reddit snscrape error: {e}")
+            logger.error(f"Reddit search error: {e}")
             return []
 
-    def _process_submission(self, submission) -> Optional[SearchResult]:
+    def _process_post(self, post: Dict[str, Any]) -> Optional[SearchResult]:
         """
-        Process a Reddit submission into a SearchResult.
+        Process a Reddit post into a SearchResult.
 
         Args:
-            submission: snscrape RedditSubmission object
+            post: Reddit post data dictionary
 
         Returns:
             SearchResult or None if processing fails
         """
         try:
-            # Extract data from submission
-            title = submission.title or ""
-            selftext = submission.selftext or ""
-            score = submission.score or 0
-            num_comments = submission.commentCount or 0
-            author = submission.author or "[deleted]"
-            post_id = submission.id or ""
-            subreddit = submission.subreddit or ""
-            url = submission.url or f"https://reddit.com/r/{subreddit}/comments/{post_id}"
-            created = submission.created or datetime.now()
+            # Extract data
+            title = post.get("title", "")
+            selftext = post.get("selftext", "")
+            score = post.get("score", 0)
+            upvote_ratio = post.get("upvote_ratio", 0.5)
+            num_comments = post.get("num_comments", 0)
+            author = post.get("author", "[deleted]")
+            post_id = post.get("id", "")
+            subreddit = post.get("subreddit", "")
+            permalink = post.get("permalink", "")
+            created_utc = post.get("created_utc", 0)
+            link_flair_text = post.get("link_flair_text", "")
+            total_awards = post.get("total_awards_received", 0)
 
             # Skip removed/deleted posts
             if selftext in ["[removed]", "[deleted]"] or title in ["[removed]", "[deleted]"]:
                 return None
 
-            # Calculate engagement (estimate upvote ratio)
-            upvote_ratio = 0.8  # Default estimate
-            if score > 0:
-                upvote_ratio = min(0.9, 0.5 + (score / 1000))
+            if author in ["[deleted]", "AutoModerator"]:
+                return None
 
+            # Calculate engagement
             engagement = {
                 "upvotes": score,
                 "upvote_ratio": int(upvote_ratio * 100),
                 "num_comments": num_comments,
-                "awards": 0,  # snscrape doesn't provide awards
+                "awards": total_awards,
             }
 
             # Calculate credibility
             credibility = 0.5
+            if total_awards > 0:
+                credibility += 0.2
             if upvote_ratio > 0.8:
                 credibility += 0.2
             if num_comments > 50:
                 credibility += 0.1
-            if score > 100:
-                credibility += 0.2
             credibility = min(credibility, 1.0)
 
             # Calculate relevance
@@ -168,9 +168,9 @@ class RedditClient:
 
             source = SourceAttribution(
                 platform="reddit",
-                url=url,
+                url=f"{self.base_url}{permalink}",
                 author=f"u/{author}",
-                timestamp=created,
+                timestamp=datetime.fromtimestamp(created_utc) if created_utc else datetime.now(),
                 engagement=engagement,
                 credibility_score=credibility,
             )
@@ -184,14 +184,14 @@ class RedditClient:
                     "post_id": post_id,
                     "subreddit": subreddit,
                     "is_self": bool(selftext),
-                    "flair": "",  # snscrape doesn't provide flair
+                    "flair": link_flair_text,
                 },
             )
 
             return result
 
         except Exception as e:
-            logger.warning(f"Error processing submission: {e}")
+            logger.warning(f"Error processing post: {e}")
             return None
 
     def get_subreddit_suggestions(self, query: str) -> List[str]:
@@ -207,7 +207,6 @@ class RedditClient:
         try:
             # Common subreddits based on keywords
             suggestions = []
-
             query_lower = query.lower()
 
             # Tech-related
@@ -224,7 +223,7 @@ class RedditClient:
 
             # News/current events
             if any(word in query_lower for word in ["news", "latest", "today", "recent", "happening"]):
-                suggestions.extend(["news", "worldnews", "tech"])
+                suggestions.extend(["news", "worldnews", "technology"])
 
             # Web development
             if any(word in query_lower for word in ["web", "frontend", "backend", "react", "node"]):
@@ -264,3 +263,47 @@ class RedditClient:
         except Exception as e:
             logger.error(f"Error getting subreddit suggestions: {e}")
             return ["all"]
+
+    def get_post_comments(self, post_id: str, subreddit: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """
+        Get top comments for a post (optional enhancement).
+
+        Args:
+            post_id: Reddit post ID
+            subreddit: Subreddit name
+            limit: Number of comments to retrieve
+
+        Returns:
+            List of comment dictionaries
+        """
+        try:
+            url = f"{self.base_url}/r/{subreddit}/comments/{post_id}.json"
+            params = {"limit": limit, "raw_json": 1}
+
+            response = self.session.get(url, params=params, timeout=10)
+            response.raise_for_status()
+
+            data = response.json()
+
+            if len(data) < 2:
+                return []
+
+            comments = []
+            comment_listing = data[1]["data"]["children"]
+
+            for comment_data in comment_listing[:limit]:
+                if comment_data["kind"] == "t1":  # t1 = comment
+                    comment = comment_data["data"]
+                    if comment.get("body") and comment["body"] not in ["[removed]", "[deleted]"]:
+                        comments.append({
+                            "body": comment.get("body", ""),
+                            "score": comment.get("score", 0),
+                            "author": comment.get("author", "[deleted]"),
+                        })
+
+            time.sleep(0.5)  # Be respectful
+            return comments
+
+        except Exception as e:
+            logger.debug(f"Error fetching comments: {e}")
+            return []
